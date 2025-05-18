@@ -1,0 +1,86 @@
+```mermaid
+graph TB
+    %% Main Components
+    User([User]) --> UI[Streamlit UI\napp.py]
+    
+    %% Document Processing Section
+    subgraph "Document Processing"
+        FileHandler[File Handler\nfile_handler.py]
+        PDFProcessor[PDF Processor\npdf_processor.py]
+        PDFToMarkdown[PDF to Markdown\npdftomarkdown.py]
+        Config[Configuration\nconfig.py]
+        
+        FileHandler --> PDFProcessor
+        PDFProcessor --> PDFToMarkdown
+        Config -.-> PDFProcessor
+        Config -.-> PDFToMarkdown
+    end
+    
+    %% Embedding & Indexing Section
+    subgraph "Vector Processing"
+        IndexCreator[Index Creator\ncreate_index_from_file.py]
+        Embeddings[Embeddings Generation\nAzureOpenAIEmbeddings]
+        
+        IndexCreator --> Embeddings
+        Config -.-> IndexCreator
+        Config -.-> Embeddings
+    end
+    
+    %% Search & Retrieval
+    subgraph "Search & Retrieval"
+        SearchFunc[Search Function\nsearch_documents()]
+        QAFunc[QA Function\nask_question()]
+        ChatModel[Chat Model\nAzureChatOpenAI]
+        
+        SearchFunc --> Embeddings
+        SearchFunc --> QAFunc
+        QAFunc --> ChatModel
+        Config -.-> SearchFunc
+        Config -.-> ChatModel
+    end
+    
+    %% Azure Services
+    subgraph "Azure Services"
+        AzureOpenAI[Azure OpenAI]
+        AzureSearch[Azure AI Search]
+        AzureDocIntel[Azure Document Intelligence]
+        AzureBlob[Azure Blob Storage]
+    end
+    
+    %% Connections to Azure
+    PDFToMarkdown --> AzureDocIntel
+    PDFToMarkdown --> AzureBlob
+    Embeddings --> AzureOpenAI
+    IndexCreator --> AzureSearch
+    SearchFunc --> AzureSearch
+    ChatModel --> AzureOpenAI
+    
+    %% Application Flow
+    UI --> FileHandler
+    FileHandler --> IndexCreator
+    UI --> SearchFunc
+    UI --> QAFunc
+    
+    %% Testing Components
+    subgraph "Testing"
+        TestPDF[Test PDF Processor\ntest_pdf_processor.py]
+        TestEmbeddings[Test Embeddings\ntest_embeddings.py]
+        
+        TestPDF --> PDFProcessor
+        TestEmbeddings --> Embeddings
+    end
+    
+    %% Style Definitions
+    classDef azure fill:#0072C6,color:white,stroke:#0063B1,stroke-width:2px;
+    classDef core fill:#4CAF50,color:white,stroke:#2E7D32,stroke-width:2px;
+    classDef ui fill:#FF9800,color:white,stroke:#F57C00,stroke-width:2px;
+    classDef testing fill:#9C27B0,color:white,stroke:#7B1FA2,stroke-width:1px;
+    classDef config fill:#607D8B,color:white,stroke:#455A64,stroke-width:1px;
+    
+    %% Apply Styles
+    class AzureOpenAI,AzureSearch,AzureDocIntel,AzureBlob azure;
+    class FileHandler,PDFProcessor,PDFToMarkdown,IndexCreator,Embeddings,SearchFunc,QAFunc,ChatModel core;
+    class UI,User ui;
+    class TestPDF,TestEmbeddings testing;
+    class Config config;
+```

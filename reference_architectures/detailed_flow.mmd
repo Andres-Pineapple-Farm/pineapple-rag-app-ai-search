@@ -1,0 +1,64 @@
+```mermaid
+flowchart TB
+    %% User interface
+    user([User]) --> streamlit[Streamlit App\napp.py]
+    
+    %% Document Upload Flow
+    streamlit -- "Upload Document" --> process_file["process_file()\napp.py"]
+    process_file --> detect_file["detect_file_type()\nfile_handler.py"]
+    detect_file --> validate_file["validate_file()\nfile_handler.py"]
+    
+    %% Document Processing Branch
+    validate_file --> pdf_branch{Is PDF?}
+    validate_file --> md_branch{Is Markdown?}
+    validate_file --> csv_branch{Is CSV?}
+    
+    %% PDF Processing Path
+    pdf_branch -- Yes --> is_image_pdf["is_image_based_pdf()\npdf_processor.py"]
+    is_image_pdf -- "Image-based" --> process_pdf["process_pdf()\npdf_processor.py"]
+    process_pdf -- "Uses" --> azure_doc_intel[("Azure Document\nIntelligence")]
+    process_pdf -- "Creates" --> markdown_output["Markdown File"]
+    
+    is_image_pdf -- "Native Text" --> extract_text["extract_text()\npdf_processor.py"]
+    extract_text -- "Creates" --> markdown_output
+    
+    %% Markdown & CSV Path
+    md_branch -- Yes --> markdown_output
+    csv_branch -- Yes --> csv_file["CSV File"]
+    
+    %% Indexing Flow
+    markdown_output --> create_index["create_index_from_file()\ncreate_index_from_file.py"]
+    csv_file --> create_index
+    
+    create_index --> create_markdown_docs["create_docs_from_markdown()\ncreate_index_from_file.py"]
+    create_index --> create_csv_docs["create_docs_from_csv()\ncreate_index_from_file.py"]
+    
+    create_markdown_docs -- "Chunk & Embed" --> generate_embeddings["embeddings.embed_query()\nAzureOpenAIEmbeddings"]
+    create_csv_docs -- "Embed" --> generate_embeddings
+    
+    generate_embeddings -- "Uses" --> azure_openai[("Azure OpenAI\nService")]
+    generate_embeddings --> search_index["Azure AI Search Index"]
+    
+    %% Search & QA Flow
+    streamlit -- "Ask Question" --> search_documents["search_documents()\napp.py"]
+    search_documents --> embed_question["embeddings.embed_query()\nAzureOpenAIEmbeddings"]
+    embed_question --> vector_search["Vector Search\nAzure AI Search"]
+    
+    vector_search --> retrieve_docs["Retrieved Document Chunks"]
+    retrieve_docs --> ask_question["ask_question()\napp.py"]
+    ask_question --> chat_model["chat_model.invoke()\nAzureChatOpenAI"]
+    chat_model -- "Uses" --> azure_openai
+    chat_model --> answer["Answer to User"]
+    answer --> streamlit
+    
+    %% Styling
+    classDef azure fill:#0072C6,color:white,stroke-width:2px;
+    classDef module fill:#4CAF50,color:white,stroke-width:1px;
+    classDef file fill:#FFC107,color:black,stroke-width:1px;
+    classDef ui fill:#FF5722,color:white,stroke-width:2px;
+    
+    class azure_openai,azure_doc_intel,search_index azure;
+    class process_file,detect_file,validate_file,is_image_pdf,process_pdf,extract_text,create_index,create_markdown_docs,create_csv_docs,generate_embeddings,search_documents,embed_question,ask_question,chat_model module;
+    class markdown_output,csv_file,answer,retrieve_docs file;
+    class streamlit,user ui;
+```

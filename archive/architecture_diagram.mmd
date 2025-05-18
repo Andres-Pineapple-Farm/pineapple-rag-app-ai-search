@@ -1,0 +1,11 @@
+graph TD
+    A[User Interface (Streamlit)] -->|Uploads PDF| B[PDF Processing]
+    B -->|Native PDF| C[Text Extraction (pdfminer)]
+    B -->|Image-based PDF| D[Azure Document Intelligence]
+    C --> E[Chunking (Text Splitter)]
+    D --> E
+    E --> F[Vectorization (AzureOpenAIEmbeddings)]
+    F --> G[FAISS Index]
+    G -->|Similarity Search| H[Question Answering (Azure GPT-4)]
+    H -->|Answer| A
+    H -->|References| A

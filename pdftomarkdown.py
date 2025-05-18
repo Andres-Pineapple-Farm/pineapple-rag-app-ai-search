@@ -22,33 +22,45 @@ USAGE:
 """
 
 import os
+import streamlit as st
 
-def analyze_documents_output_in_markdown():
+def main():
+    st.title("PDF to Markdown Converter")
+
+    # Input fields for user to provide necessary details
+    endpoint = st.text_input("Document Intelligence Endpoint", "")
+    key = st.text_input("Document Intelligence API Key", "", type="password")
+    file_path = st.text_input("Path to PDF File", "")
+    connection_string = st.text_input("Azure Blob Storage Connection String", "", type="password")
+    container_name = st.text_input("Blob Storage Container Name", "")
+
+    if st.button("Convert and Upload"):
+        if not endpoint or not key or not file_path or not connection_string or not container_name:
+            st.error("Please fill in all the fields.")
+        else:
+            try:
+                analyze_documents_output_in_markdown(endpoint, key, file_path, connection_string, container_name)
+                st.success("File successfully converted and uploaded to Blob Storage.")
+            except Exception as e:
+                st.error(f"An error occurred: {e}")
+
+# Modify the function to accept parameters
+def analyze_documents_output_in_markdown(endpoint, key, file_path, connection_string, container_name):
     # [START analyze_documents_output_in_markdown]
     from azure.core.credentials import AzureKeyCredential
     from azure.ai.documentintelligence import DocumentIntelligenceClient
     from azure.ai.documentintelligence.models import AnalyzeDocumentRequest, DocumentContentFormat, AnalyzeResult
-    from azure.storage.blob import BlobServiceClient, BlobClient, ContainerClient
-
-    endpoint = ""
-    key = ""
-    # sample file below
-    #url = "https://raw.githubusercontent.com/Azure/azure-sdk-for-python/main/sdk/documentintelligence/azure-ai-documentintelligence/samples/sample_forms/forms/Invoice_1.pdf"
-
-    # Reference a specific file on the desktop
-    file_path = ""
+    from azure.storage.blob import BlobServiceClient
 
     # Open and read the file
     with open(file_path, 'rb') as file:
         content = file.read()
-        print(content)
 
     document_intelligence_client = DocumentIntelligenceClient(endpoint=endpoint, credential=AzureKeyCredential(key))
     poller = document_intelligence_client.begin_analyze_document(
         "prebuilt-layout",
         AnalyzeDocumentRequest(url_source=None, bytes_source=content),
         output_content_format=DocumentContentFormat.MARKDOWN, 
-        
     )
     result: AnalyzeResult = poller.result()
 
@@ -66,43 +78,16 @@ def analyze_documents_output_in_markdown():
         file.write(markdown_content)
 
     # Initialize the Blob Service client
-    blob_service_client = BlobServiceClient.from_connection_string("")
-    container_name = ""
-    blob_name = local_file_name
+    blob_service_client = BlobServiceClient.from_connection_string(connection_string)
+    blob_client = blob_service_client.get_blob_client(container=container_name, blob=local_file_name)
 
     # Upload the markdown file to Blob Storage
-    blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_name)
-
     with open(local_file_name, "rb") as data:
         blob_client.upload_blob(data, overwrite=True)
 
-    print("Document Intelligence processed file has been uploaded to Blob Storage successfully.")
-
-
-    # print(f"completed upload to blob storage")
-    # print(result.content)
-    # # [END analyze_documents_output_in_markdown]
-
+    # Return the markdown content
+    return markdown_content
+    # [END analyze_documents_output_in_markdown]
 
 if __name__ == "__main__":
-    from azure.core.exceptions import HttpResponseError
-    from dotenv import find_dotenv, load_dotenv
-
-    try:
-        load_dotenv(find_dotenv())
-        analyze_documents_output_in_markdown()
-    except HttpResponseError as error:
-        # Examples of how to check an HttpResponseError
-        # Check by error code:
-        if error.error is not None:
-            if error.error.code == "InvalidImage":
-                print(f"Received an invalid image error: {error.error}")
-            if error.error.code == "InvalidRequest":
-                print(f"Received an invalid request error: {error.error}")
-            # Raise the error again after printing it
-            raise
-        # If the inner error is None and then it is possible to check the message to get more information:
-        if "Invalid request".casefold() in error.message.casefold():
-            print(f"Uh-oh! Seems there was an invalid request: {error}")
-        # Raise the error again
-        raise
+    main()

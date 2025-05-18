@@ -1,0 +1,15 @@
+# Core requirements
+azure-ai-documentintelligence
+azure-ai-search
+langchain
+langchain_openai
+streamlit
+python-dotenv
+PyPDF2
+pdfminer.six
+pandas
+numpy
+
+# Office document support
+python-docx
+python-pptx

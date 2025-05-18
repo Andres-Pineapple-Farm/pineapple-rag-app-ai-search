@@ -1,0 +1,54 @@
+```mermaid
+sequenceDiagram
+    participant User
+    participant UI as Streamlit UI (app.py)
+    participant FH as File Handler (file_handler.py)
+    participant PDF as PDF Processor (pdf_processor.py)
+    participant DI as Document Intelligence
+    participant IDX as Index Creator (create_index_from_file.py)
+    participant EMB as Embeddings (AzureOpenAIEmbeddings)
+    participant AIS as Azure AI Search
+    participant AOS as Azure OpenAI Service
+    
+    %% Document Upload Flow
+    User->>UI: Upload Document
+    UI->>FH: Process File
+    FH->>FH: Detect & Validate File Type
+    
+    alt PDF Document
+        FH->>PDF: Process PDF
+        PDF->>PDF: Check if Image-Based
+        
+        alt Image-Based PDF
+            PDF->>DI: Send for OCR Processing
+            DI-->>PDF: Return Analyzed Document
+        else Native PDF
+            PDF->>PDF: Extract Text
+        end
+        
+        PDF->>IDX: Convert to Markdown
+    else Markdown/CSV
+        FH->>IDX: Pass Directly
+    end
+    
+    %% Indexing Flow
+    IDX->>IDX: Chunk Documents
+    IDX->>EMB: Generate Embeddings
+    EMB->>AOS: Request Embeddings
+    AOS-->>EMB: Return Vector Embeddings
+    IDX->>AIS: Create/Update Index
+    AIS-->>IDX: Index Created
+    IDX-->>UI: Document Indexed
+    UI-->>User: Indexing Complete
+    
+    %% Question Answering Flow
+    User->>UI: Ask Question
+    UI->>EMB: Generate Question Embedding
+    EMB->>AOS: Request Embedding
+    AOS-->>EMB: Return Vector
+    UI->>AIS: Vector Search Query
+    AIS-->>UI: Return Relevant Document Chunks
+    UI->>AOS: Generate Answer (with context)
+    AOS-->>UI: Return Generated Answer
+    UI-->>User: Display Answer and Sources
+```
