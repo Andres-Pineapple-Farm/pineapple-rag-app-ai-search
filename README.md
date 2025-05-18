@@ -64,7 +64,7 @@ AZURE_BLOB_CONTAINER_NAME=your_container_name
 ### 5. Run the Application
 
 ```bash
-streamlit run app_fixed.py
+streamlit run app.py
 ```
 
 The application will be available at http://localhost:8501
