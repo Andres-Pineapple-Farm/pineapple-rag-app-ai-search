@@ -1,4 +1,5 @@
 import os
+import uuid
 from azure.identity import DefaultAzureCredential
 from azure.core.credentials import AzureKeyCredential
 from azure.search.documents import SearchClient
@@ -70,9 +71,7 @@ from azure.search.documents.indexes.models import (
 def create_index_definition(index_name: str, model: str) -> SearchIndex:
     dimensions = 1536  # text-embedding-ada-002
     if model == "text-embedding-3-large":
-        dimensions = 3072
-
-    # The fields we want to index. The "embedding" field is a vector field that will
+        dimensions = 3072    # The fields we want to index. The "embedding" field is a vector field that will
     # be used for vector search.
     fields = [
         SimpleField(name="id", type=SearchFieldDataType.String, key=True),
@@ -80,6 +79,7 @@ def create_index_definition(index_name: str, model: str) -> SearchIndex:
         SimpleField(name="filepath", type=SearchFieldDataType.String),
         SearchableField(name="title", type=SearchFieldDataType.String),
         SimpleField(name="url", type=SearchFieldDataType.String),
+        SimpleField(name="doc_id", type=SearchFieldDataType.String, filterable=True),
         SearchField(
             name="contentVector",
             type=SearchFieldDataType.Collection(SearchFieldDataType.Single),
@@ -146,7 +146,10 @@ def create_index_definition(index_name: str, model: str) -> SearchIndex:
 
 # define a function for indexing a markdown file, that chunks the content
 # and generates vector embeddings for each chunk
-def create_docs_from_markdown(path: str, model: str, chunk_size: int = 1000, chunk_overlap: int = 200) -> list[dict[str, any]]:
+def create_docs_from_markdown(path: str, model: str, chunk_size: int = 1000, chunk_overlap: int = 200, doc_id: str = None) -> list[dict[str, any]]:
+    # Generate a document ID if not provided
+    if doc_id is None:
+        doc_id = str(uuid.uuid4())
     # Read the markdown file
     try:
         # Check file extension to ensure we're only trying to read text files
@@ -330,14 +333,14 @@ def create_docs_from_markdown(path: str, model: str, chunk_size: int = 1000, chu
                     url = f"/document/section-{section_num}"
                 
                 # Generate embeddings for the chunk using embed_query
-                embedding_vector = embeddings.embed_query(chunk)
-                  # Create and add the record
+                embedding_vector = embeddings.embed_query(chunk)                # Create and add the record with document ID
                 rec = {
                     "id": chunk_id,
                     "content": chunk,
                     "filepath": path,
                     "title": title,
                     "url": url,
+                    "doc_id": doc_id,
                     "contentVector": embedding_vector,
                 }
                 items.append(rec)
@@ -385,7 +388,7 @@ def create_docs_from_csv(path: str, content_column: str, model: str) -> list[dic
     logger.info(f"Created {len(items)} documents from CSV file")
     return items
 
-def create_index_from_file(index_name, file_path, file_type='markdown'):
+def create_index_from_file(index_name, file_path, file_type='markdown', doc_id=None):
     """
     Create an Azure AI Search index from a file.
     
@@ -393,7 +396,11 @@ def create_index_from_file(index_name, file_path, file_type='markdown'):
         index_name: The name of the search index to create
         file_path: Path to the file to process
         file_type: Type of file to process ('markdown', 'csv', 'word', 'powerpoint')
+        doc_id: Unique identifier for the document (optional)
     """
+    # Generate a unique doc_id if not provided
+    if doc_id is None:
+        doc_id = str(uuid.uuid4())
     # If a search index already exists, delete it:
     try:
         index_definition = index_client.get_index(index_name)
@@ -410,22 +417,30 @@ def create_index_from_file(index_name, file_path, file_type='markdown'):
     except Exception as e:
         logger.error(f"Error creating index: {e}")
         raise
-        
-    # Based on file type, process the file differently
+          # Based on file type, process the file differently
     docs = []
     try:
         if file_type.lower() == 'csv':
             # Create documents from the CSV file, generating vector embeddings
             docs = create_docs_from_csv(path=file_path, content_column="description", model=embeddings.model)
+            # Add doc_id to each document
+            for doc in docs:
+                doc["doc_id"] = doc_id
         elif file_type.lower() == 'markdown':
             # Create documents from the markdown file, chunking and generating vector embeddings
-            docs = create_docs_from_markdown(path=file_path, model=embeddings.model)
+            docs = create_docs_from_markdown(path=file_path, model=embeddings.model, doc_id=doc_id)
         elif file_type.lower() == 'word':
             # Create documents from the Word document, generating vector embeddings
             docs = create_docs_from_word(path=file_path, model=embeddings.model)
+            # Add doc_id to each document
+            for doc in docs:
+                doc["doc_id"] = doc_id
         elif file_type.lower() == 'powerpoint':
             # Create documents from the PowerPoint document, generating vector embeddings
             docs = create_docs_from_powerpoint(path=file_path, model=embeddings.model)
+            # Add doc_id to each document
+            for doc in docs:
+                doc["doc_id"] = doc_id
         else:
             raise ValueError(f"Unsupported file type: {file_type}")
     except Exception as e:
